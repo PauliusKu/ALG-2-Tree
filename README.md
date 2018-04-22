@@ -1,2 +1,2 @@
 # ALG-2-Tree
-[x] - Ramndom medþio suformavimas.
+- [x] Ramndom medÃ¾io suformavimas.
