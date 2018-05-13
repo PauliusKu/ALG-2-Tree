@@ -1,5 +1,4 @@
 #include "Program.h"
-#include <fstream>
 #include <random>
 #include <chrono>
 using std::cout;
@@ -9,63 +8,41 @@ using std::endl;
 int main()
 {
 	unsigned int n{};
-	std::cin >> n;
+	//std::cin >> n;
 	std::vector<Tree> T;
+	std::vector<Vertices> V{};
+	std::vector<Faces> F{};
 	std::cout << "Generuojamas Failas ------------------------------" <<  std::endl;
-	TreeGenerator(n, T);
+	//TreeGenerator(n, T);
+	InputPrufer(T);
 	std::cout << "Skaiciuojami Vaikai ------------------------------" <<  std::endl;
 	CountDescLevel(T, 0, 0);
+	//std::cout << FindRoot(T) << std::endl;
 	std::cout << "Skaiciuojami Kampai ------------------------------" <<  std::endl;
 	GetArea(T);
-	std::cout << "Skaiciuojamos Koordinatës ------------------------" <<  std::endl;
+	std::cout << "Skaiciuojamos Koordinates ------------------------" <<  std::endl;
 	GetCoordinates(T);
-	PrintList(T);
-	std::cout << "Isvedimas ----------------------------------------" <<  std::endl;
-	std::ofstream ofs ("testas.off");
-	ofs << "OFF" << endl;
-	ofs << T.size()*8<<" " << T.size()*7-1 << " 0" << endl;
-	for (int i = 0; i < T.size(); i++)
-	{
-		double k = 1.0/T.size()+1.0/(i+5);
-		//kubai
-		ofs << T[i].X+ k << " " << T[i].Y+ k << " " << k << endl;
-		ofs << T[i].X+ k << " " << T[i].Y- k << " " << k << endl;
-		ofs << T[i].X- k << " " << T[i].Y- k << " " << k << endl;
-		ofs << T[i].X- k << " " << T[i].Y+ k << " " << k << endl;
-		ofs << T[i].X+ k << " " << T[i].Y+ k << " " << -k << endl;
-		ofs << T[i].X+ k << " " << T[i].Y- k << " " << -k << endl;
-		ofs << T[i].X- k << " " << T[i].Y- k << " " << -k << endl;
-		ofs << T[i].X- k << " " << T[i].Y+ k << " " << -k << endl;
-	}
+	std::cout << "Sudaromi kubai -----------------------------------" <<  std::endl;
 	std::random_device rd;
 	std::mt19937 mt(static_cast<unsigned int>(time(nullptr)));
-	for (int i = 0; i < T.size(); i++)
+	unsigned int size = T.size();
+	coordinate center{T[0].X, T[0].Y, 0};
+	RGB rgb{100, 100, 100};
+	float k = 1.0/size+1.0/(0+5);
+	CreateCube(center,rgb, k, V, F);
+	for (unsigned int i = 1; i < size; i++)
 	{
 		std::uniform_int_distribution<unsigned int> d(0,255);
-		unsigned int d1 = d(mt);
-		unsigned int d2 = d(mt);
-		unsigned int d3 = d(mt);
-		ofs << "4 " << i*8 << " " << i*8+1 << " " << i*8+2 << " " << i*8+3 <<" " << d1 << " "<< d2 <<" " << d3<< endl;		
-		ofs << "4 " << i*8+4 << " " << i*8+5 << " " << i*8+6 << " " << i*8+7 <<  " "<< d1 << " "<< d2 <<" " << d3<< endl;
-		ofs << "4 " << i*8+4 << " " << i*8+7 << " " << i*8+3 << " " << i*8 << " "<< d1 << " "<< d2 <<" " << d3<< endl;		
-		ofs << "4 " << i*8+5 << " " << i*8+6 << " " << i*8+2 << " " << i*8+1<< " " << d1 << " "<< d2 <<" " << d3<< endl;
-		ofs << "4 " << i*8+4 << " " << i*8+5 << " " << i*8+1 << " " << i*8 << " "<< d1 << " "<< d2 <<" " << d3<< endl;		
-		ofs << "4 " << i*8+7 << " " << i*8+6 << " " << i*8+2 << " " << i*8+3 << " "<< d1 << " "<< d2 <<" " << d3<< endl;	
-	}	
-	
-	for (int i = 1; i < T.size(); i++)
-	{
-		std::uniform_int_distribution<unsigned int> d(0,255);
-		unsigned int d1 = d(mt);
-		unsigned int d2 = d(mt);
-		unsigned int d3 = d(mt);
-		ofs << "4 ";
-		
-		ofs << T[i].ID*8 << " ";
-		ofs << T[i].ID*8+4 << " ";
-		ofs << T[i].Connect[0]*8+4 << " ";
-		ofs << T[i].Connect[0]*8 << " "<<d1 << " "<< d2 <<" " << d3<< endl;	
+		RGB rgb{d(mt), d(mt), d(mt)};
+		float k = 0.5/size+1.0/(i+5);
+		coordinate center{T[i].X, T[i].Y, 0};
+		coordinate parent{T[T[i].Connect[0]].X, T[T[i].Connect[0]].Y, 0};
+		CreateCube(center,rgb, k, V, F);
+		CreateCylinder(center, parent, rgb, k, V, F);
 	}
-	ofs.close();
+	
+	std::cout << "Kuriamas OFF failas ------------------------------" <<  std::endl;
+	PrintOFF(V, F);
+	//PrintList(T);
 	return 0;
 }
