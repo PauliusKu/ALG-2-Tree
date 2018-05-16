@@ -1,18 +1,18 @@
 #include "Program.h"
 #include <random>
-#include <chrono>
 #include <algorithm>
 #include <math.h>
 #include <fstream>
 #include <algorithm>
+#include <omp.h> 
 #define PI 3.14159265
+#define minus -1
 
 
 void TreeGenerator(unsigned int n, std::vector<Tree> &T)
 {
 	std::random_device rd;
 	std::mt19937 mt(static_cast<unsigned int>(time(nullptr)));
-	
 	
 	Tree T1{};
 	T1.ID = 0;
@@ -27,14 +27,7 @@ void TreeGenerator(unsigned int n, std::vector<Tree> &T)
 		
 		std::uniform_int_distribution<unsigned int> dist(0,i-1);
 		T1.Connect.push_back(dist(mt));
-		for (auto& it : T)
-		{
-			if (it.ID == T1.Connect[0])
-			{
-				it.Connect.push_back(i);
-			}
-		}
-		
+		T[T1.Connect[0]].Connect.push_back(i);
 		T.push_back(T1);	
 	}
 }
@@ -49,6 +42,9 @@ void PrintList(std::vector<Tree>& T)
 		std::cout << "level: " << i.level << std::endl;
 		std::cout << "angle: " << i.angle << std::endl;
 		std::cout << "tab: " << i.tab << std::endl;
+		std::cout << "area: " << i.area << std::endl;
+		std::cout << "X: " << i.X << std::endl;
+		std::cout << "Y: " << i.Y << std::endl;
 		for (unsigned int j = 0; j < i.Connect.size(); j++)
 		{
 			std::cout << i.Connect[j] << " ";
@@ -81,11 +77,9 @@ unsigned int FindRoot(std::vector<Tree> &T)
 	
 	while(Temp.size() >= 2)
 	{
-		//std::cout << Temp.size() << std::endl;
 		//nuimineja isorinius lapus
 		for (auto & i : Temp)
 		{
-			//std::cout << "size" << i.Connect.size()<< std::endl;
 			if (i.Connect.size() == 1)
 			{
 				//pasalinti sasaja ir nuimti lapa
@@ -98,7 +92,6 @@ unsigned int FindRoot(std::vector<Tree> &T)
 					}
 				}
 				//nuima lapa
-				//std::cout << "********* "<< i.ID << std::endl;
 				i.exist = false;
 			}
 		}
@@ -106,10 +99,8 @@ unsigned int FindRoot(std::vector<Tree> &T)
 		for (itr=Temp.begin(); itr!=Temp.end(); ++itr)
 		{
 			itr->Connect = itr->newConnect;
-			//std::cout << itr->ID << std::endl;
 			if (itr->exist == false)
 			{
-				//std::cout << "-Trina-" << std::endl;
 				itr = Temp.erase(itr);
 				itr--;			
 			}
@@ -118,48 +109,68 @@ unsigned int FindRoot(std::vector<Tree> &T)
 	return Temp.front().ID;
 }
 
-unsigned int CountDescLevel(std::vector<Tree> &T, unsigned int ID, unsigned int level)
+unsigned int CountMagic1(std::vector<Tree> &T, unsigned int ID, unsigned int level, int par)
+{
+
+	//randa teva ir perkelia
+	for (unsigned int i = 0; i < T[ID].Connect.size(); i++)
+	{
+		if (T[ID].Connect[i] == par)
+		{
+			T[ID].Connect[i] = T[ID].Connect[0];
+			T[ID].Connect[0] = par;
+		}
+	}
+	//skaiciuoja vaikus
+	unsigned int sum{};
+
+	T[ID].level = level;
+	for (unsigned int i = 1; i < T[ID].Connect.size(); i++)
+	{
+		sum += CountMagic1(T, T[ID].Connect[i], level + 1, ID);
+		sum++;
+		T[ID].descSum = sum;
+	}
+	return sum;
+}
+unsigned int CountMagic(std::vector<Tree> &T, unsigned int ID, unsigned int level)
 {
 	unsigned int sum{};
-	
-	//std::cout << "------------------------" << ID << std::endl;
-	std::vector<Tree>::iterator itr = T.begin();
-	while(true)
+
+	T[ID].level = level;
+	for (unsigned int i = 0; i < T[ID].Connect.size(); i++)
 	{
-		if(itr->ID == ID)
-		{
-			unsigned int start = 1;
-			if (ID == 0) //jei pirmasis, reikia skaiciuoti visus rysius
-			{
-				start = 0;
-			}
-			itr->level = level;
-			sum++;
-			for (unsigned int i = start; i < itr->Connect.size(); i++)
-			{
-				//std::cout << i << ": "<< itr->Connect[i] << std::endl;
-				sum += CountDescLevel(T, itr->Connect[i], level+1);
-				//std::cout << sum << std::endl;
-			}
-			itr->descSum = sum-1;
-			break;
-		}
-		itr++;
+		sum += CountMagic1(T, T[ID].Connect[i], level + 1, ID);
+		sum++;
+		T[ID].descSum = sum;
 	}
 	return sum;
 }
 
-void GetArea(std::vector<Tree>& T)
+void GetNewArea1(std::vector<Tree>& T, unsigned int ID)
 {
-	//tarkim, kad gerai
-	for (unsigned int i = 1; i < T.size(); i++)
+	for (unsigned int i = 1; i < T[ID].Connect.size(); i++)
 	{
-		T[i].tab = T[T[i].Connect[0]].tab;
-		T[i].area = (T[T[i].Connect[0]].area/T[T[i].Connect[0]].descSum*(T[i].descSum+1));
-		T[i].angle = T[T[i].Connect[0]].tab + T[i].area/2;
-		T[T[i].Connect[0]].tab += T[i].area;
+		T[T[ID].Connect[i]].tab = T[T[T[ID].Connect[i]].Connect[0]].tab;
+		T[T[ID].Connect[i]].area = (T[T[T[ID].Connect[i]].Connect[0]].area / T[T[T[ID].Connect[i]].Connect[0]].descSum*(T[T[ID].Connect[i]].descSum + 1));
+		T[T[ID].Connect[i]].angle = T[T[T[ID].Connect[i]].Connect[0]].tab + T[T[ID].Connect[i]].area / 2;
+		T[T[T[ID].Connect[i]].Connect[0]].tab += T[T[ID].Connect[i]].area;
+		GetNewArea1(T, T[ID].Connect[i]);
 	}
-	
+}
+
+void GetNewArea(std::vector<Tree>& T, unsigned int ID)
+{
+	T[ID].tab = 0;
+	T[ID].area = 360;
+	for (unsigned int i = 0; i < T[ID].Connect.size(); i++)
+	{
+		T[T[ID].Connect[i]].tab = T[T[T[ID].Connect[i]].Connect[0]].tab;
+		T[T[ID].Connect[i]].area = (T[T[T[ID].Connect[i]].Connect[0]].area / T[T[T[ID].Connect[i]].Connect[0]].descSum*(T[T[ID].Connect[i]].descSum + 1));
+		T[T[ID].Connect[i]].angle = T[T[T[ID].Connect[i]].Connect[0]].tab + T[T[ID].Connect[i]].area / 2;
+		T[T[T[ID].Connect[i]].Connect[0]].tab += T[T[ID].Connect[i]].area;
+		GetNewArea1(T, T[ID].Connect[i]);
+	}
 }
 
 void GetCoordinates(std::vector<Tree>& T)
@@ -169,101 +180,14 @@ void GetCoordinates(std::vector<Tree>& T)
 	{
 		T[i].X = T[i].level*cos(T[i].angle*PI/180);
 		T[i].Y = T[i].level*sin(T[i].angle*PI/180);
-		//std::cout << T[i].X << std::endl;
-		//std::cout << T[i].Y << std::endl;
 	}
 }
-
-//void CreateOFF(std::vector<Tree>& T)
-//{
-//	std::ofstream ofs ("testas.off");
-//	ofs << "OFF" << std::endl;
-//	ofs << T.size()*8<<" " << T.size()*7-1 << " 0" << std::endl;
-//	for (int i = 0; i < T.size(); i++)
-//	{
-//		double k = 1.0/T.size()+1.0/(i+5);
-//		//kubai
-//		ofs << T[i].X+ k << " " << T[i].Y+ k << " " << +k << std::endl;
-//		ofs << T[i].X+ k << " " << T[i].Y- k << " " << +k << std::endl;
-//		ofs << T[i].X- k << " " << T[i].Y- k << " " << +k << std::endl;
-//		ofs << T[i].X- k << " " << T[i].Y+ k << " " << +k << std::endl;
-//		ofs << T[i].X+ k << " " << T[i].Y+ k << " " << -k << std::endl;
-//		ofs << T[i].X+ k << " " << T[i].Y- k << " " << -k << std::endl;
-//		ofs << T[i].X- k << " " << T[i].Y- k << " " << -k << std::endl;
-//		ofs << T[i].X- k << " " << T[i].Y+ k << " " << -k << std::endl;
-//	}
-//	std::random_device rd;
-//	std::mt19937 mt(static_cast<unsigned int>(time(nullptr)));
-//	for (int i = 0; i < T.size(); i++)
-//	{
-//		std::uniform_int_distribution<unsigned int> d(0,255);
-//		unsigned int d1 = d(mt);
-//		unsigned int G = d(mt);
-//		unsigned int d3 = d(mt);
-//		ofs << "4 " << i*8 << " " << i*8+1 << " " << i*8+2 << " " << i*8+3 <<" " << d1 << " "<< d2 <<" " << d3<< std::endl;		
-//		ofs << "4 " << i*8+4 << " " << i*8+5 << " " << i*8+6 << " " << i*8+7 <<  " "<< d1 << " "<< d2 <<" " << d3<< std::endl;
-//		ofs << "4 " << i*8+4 << " " << i*8+7 << " " << i*8+3 << " " << i*8 << " "<< d1 << " "<< d2 <<" " << d3<< std::endl;		
-//		ofs << "4 " << i*8+5 << " " << i*8+6 << " " << i*8+2 << " " << i*8+1<< " " << d1 << " "<< d2 <<" " << d3<< std::endl;
-//		ofs << "4 " << i*8+4 << " " << i*8+5 << " " << i*8+1 << " " << i*8 << " "<< d1 << " "<< d2 <<" " << d3<< std::endl;	
-//		ofs << "4 " << i*8+7 << " " << i*8+6 << " " << i*8+2 << " " << i*8+3 << " "<< d1 << " "<< d2 <<" " << d3<< std::endl;
-//	}	
-//	
-//	for (int i = 1; i < T.size(); i++)
-//	{
-//		std::uniform_int_distribution<unsigned int> d(0,255);
-//		unsigned int d1 = d(mt);
-//		unsigned int d2 = d(mt);
-//		unsigned int d3 = d(mt);
-//		ofs << "4 ";
-//		
-//		ofs << T[i].ID*8 << " ";
-//		ofs << T[i].ID*8+4 << " ";
-//		ofs << T[i].Connect[0]*8+4 << " ";
-//		ofs << T[i].Connect[0]*8 << " "<<d1 << " "<< d2 <<" " << d3<< std::endl;
-//	}
-//	ofs.close();
-//}
-
-void SwitchRoot(std::vector<Tree>& T, unsigned int newRoot)
+void CreateCube(coordinate & center, RGB &rgb, double &k, std::vector <Vertices> &V, std::vector<Faces>&F)
 {
-//	unsigned int i = newRoot;
-//	while(true)
-//	{
-//		std::cout << "i:  " << i << std::endl;
-//		if (i == 0)
-//		{
-//			break;
-//		}
-//		for (unsigned int j = 1; true;j++)
-//		{
-//			if (T[T[i].Connect[0]].Connect[j] == i)
-//			{
-//				std::cout << "switch " << std::endl;
-//				i = T[T[i].Connect[0]].Connect[0];
-//				T[T[i].Connect[0]].Connect[0] = T[T[i].Connect[0]].Connect[j];
-//				T[T[i].Connect[0]].Connect[j] = i;
-//				for (unsigned int l = 0; l < T[T[i].Connect[0]].Connect.size(); l++)
-//				{
-//					std::cout << T[T[i].Connect[0]].Connect[l] << std::endl;
-//				}
-//				if (T[i].Connect[0] == 0)
-//				{
-//					i = 0;
-//				}
-//				break;
-//			}
-//		}
-//	}
-//	iter_swap(T.begin(), T.begin() + newRoot);
-}
-
-
-void CreateCube(coordinate & center, RGB &rgb, float &k, std::vector <Vertices> &V, std::vector<Faces>&F)
-{
-	unsigned int size = V.size();
+	auto size = V.size();
 	Vertices V1;
 	Faces F1;
-	
+
 	F1.face.push_back(4); F1.face.push_back(size+3); F1.face.push_back(size+2); F1.face.push_back(size+1); F1.face.push_back(size+0); F1.face.push_back(rgb.r); F1.face.push_back(rgb.g); F1.face.push_back(rgb.b);
 	F.push_back(F1);
 	F1.face.clear();
@@ -321,13 +245,13 @@ void PrintOFF(std::vector <Vertices> &V, std::vector<Faces>&F)
 	}
 	ofs.close();
 }
-void CreateCylinder(coordinate & start, coordinate & end, RGB &rgb, float &k, std::vector<Vertices>&V, std::vector<Faces>&F)
+void CreateCylinder(coordinate & start, coordinate & end, RGB &rgb, double &k, std::vector<Vertices>&V, std::vector<Faces>&F)
 {
-	unsigned int size = V.size();
+	auto size = V.size();
 	Vertices V1;
 	Faces F1;
 	k = k/2;
-	float angle = atan2(end.y - start.y, end.x - start.x) * 180 / PI;
+	double angle = atan2(end.y - start.y, end.x - start.x) * 180 / PI;
 	
 	F1.face.push_back(4); F1.face.push_back(size+0); F1.face.push_back(size+1); F1.face.push_back(size+5); F1.face.push_back(size+4); F1.face.push_back(rgb.r); F1.face.push_back(rgb.g); F1.face.push_back(rgb.b);
 	F.push_back(F1);
@@ -361,7 +285,6 @@ void CreateCylinder(coordinate & start, coordinate & end, RGB &rgb, float &k, st
 }
 void InputPrufer(std::vector<Tree> &T)
 {
-	unsigned int n{};
 	std::vector<unsigned int>Pruf{};
 	std::vector<unsigned int>Med{};
 	
@@ -379,17 +302,13 @@ void InputPrufer(std::vector<Tree> &T)
 				{
 					throw "Neivedete nei vieno pazymio";
 				} else t = false;
-				std::cout << "Pazymiu ivedimas baigtas" << std::endl;
+				std::cout << "Priuferio kodo ivedimas baigtas" << std::endl;
 			} else Pruf.push_back(a);
 		}catch (const char* msg) {
     	std::cout << msg << std::endl;
    		}
 	}while (t);
-	n = Pruf.size();
-	for (int i = 0; i < n; i++)
-	{
-		std::cout << Pruf[i] << std::endl;
-	}
+	auto n = Pruf.size();
 	
 	//sukuriamas medis
 	for (unsigned int i = 0; i < n+2; i++)
@@ -408,15 +327,7 @@ void InputPrufer(std::vector<Tree> &T)
 			{
 				if (Med[l] == j)
 				{
-					std::cout << "skip...   " << Med[l]<<std::endl;
-					for (int z = 0; z < Med.size(); z++)
-					{
-						std::cout << Med[z] << " ";
-					}
-					std::cout << std::endl;
 					c = false;
-					//j++;
-					//l = 0;
 				}
 			}
 			if (c)
@@ -426,7 +337,6 @@ void InputPrufer(std::vector<Tree> &T)
 				{
 					if (T[j].ID == Pruf[l])
 					{
-						std::cout << i << " " << j << " " << l << std::endl;
 						f = false;
 					}
 				}
@@ -462,97 +372,37 @@ void InputPrufer(std::vector<Tree> &T)
 	}
 	T[Conn[0]].Connect.push_back(Conn[1]);
 	T[Conn[1]].Connect.push_back(Conn[0]);
-	for (unsigned int i = 0; i < Conn.size(); i++)
-	{
-		std::cout << Conn[i] << std::endl;
-	}
 	
-//	for (unsigned int i = 0; i < n+2; i++)
-//	{
-//		unsigned int j = T[i].Connect.size();
-//		for (unsigned int l = 0; l < T[i].Connect.size(); l++)
-//		{
-//			j--;
-//			unsigned int a{};
-//			a = T[i].Connect[l];
-//			T[i].Connect[l] = T[i].Connect[j];
-//			T[i].Connect[j] = a;
-//		}
-//	}
-	T[0].tab = 0;
-	T[0].area = 360;
-	
-	
-	//keicia vietomis
-//	for (unsigned int i = 1; i < n+2; i++)
-//	{
-//		if (T[i].ID < T[i].Connect[0])
-//		{
-//			
-//			unsigned int chld = T[i].ID;
-//			unsigned int prt = T[i].Connect[0];
-//			//vaikai
-//			for (unsigned int j = 1; j < T[i].Connect.size(); j++)
-//			{
-//				T[T[i].Connect[j]].Connect[0] = prt;
-//			}
-//			//as
-//			unsigned int a{};
-//			T[i].ID = prt;
-//			T[i].Connect[0] = chld;
-//			//broliai
-//			for (unsigned int j = 1; j < T[prt].Connect.size(); j++)
-//			{
-//				T[T[prt].Connect[j]].Connect[0] = chld;
-//			}
-//			//senelis
-//			for (unsigned int j = 0; j < T[T[prt].Connect[0]].Connect.size(); j++)
-//			{
-//				if (T[T[prt].Connect[0]].Connect[j] == prt)
-//				{
-//					T[T[prt].Connect[0]].Connect[j] = chld;
-//					j = T[T[prt].Connect[0]].Connect.size();
-//				}
-//			}
-//			//tevas
-//			T[prt].ID = chld;
-//			for (unsigned int j = 1; j < T[prt].Connect.size(); j++)
-//			{
-//				if (T[prt].Connect[j] == chld)
-//				{
-//					T[prt].Connect[j] = prt;
-//					j = T[T[i].Connect[0]].Connect.size();
-//				}
-//			}			
-//			i--;
-//		}
-//	}
-//	PrintList(T);
-	//rikiuoti
+	//atranda teva vektoriuje
 	for (unsigned int i = 0; i < n+2; i++)
 	{
-		if (T[i].ID != i)
+		unsigned int min = 1000000;
+		unsigned int minPos = 0;
+		for (unsigned int j = 0; j < T[i].Connect.size(); j++)
 		{
-			Tree T1{};
-			T1 = T[i];
-			T[i] = T[T[i].ID];
-			T[T1.ID] = T1;
-			i--;
+			if (T[i].Connect[j] < min)
+			{
+				min = T[i].Connect[j];
+				minPos = j;
+			}
 		}
+		min = T[i].Connect[minPos];
+		T[i].Connect[minPos] = T[i].Connect[0];
+		T[i].Connect[0] = min;
 	}
-	PrintList(T);
+
 }
 
 int ivestiSk( int a, int b)
 {
 	int c{};
 	std::string sk{};
-	getline(std::cin, sk);
+	std::getline(std::cin, sk);
 	if (sk == "")
 	{
 		throw "Nieko neivedete";
 	}
-	for (int i = 0; i < sk.size(); i++)
+	for (unsigned int i = 0; i < sk.size(); i++)
 	{
 		if(((int)sk[i] < 45 || (int)sk[i] > 57) || ((int)sk[i] > 45 && (int)sk[i] < 48))
 		{
@@ -564,4 +414,43 @@ int ivestiSk( int a, int b)
 	{
 		return c;
 	} else throw "Jusu ivestas skaicius yra per didelis arba per mazas";
+}
+void CreateShape(std::vector<Tree> &T, std::vector <Vertices> &V, std::vector<Faces>&F, unsigned int &root, unsigned int &deepRoot, std::mt19937 mt)
+{
+
+	std::uniform_int_distribution<unsigned int> d(0, 255);
+	RGB rgb{ d(mt), d(mt), d(mt) };
+	double k = (3.14159265 * T[root].level * T[root].area) / 540;
+	if (k > 0.2)
+	{
+		k = 0.2;
+	}
+	if ((k >= ((3.14159265 * T[T[root].Connect[0]].level * T[T[root].Connect[0]].area) / 360)) && (T[root].Connect[0] != deepRoot))
+	{
+		k = (3.14159265 * T[T[root].Connect[0]].level * T[T[root].Connect[0]].area) / 540;
+	}
+	coordinate center{ T[root].X, T[root].Y, 0 };
+	coordinate parent{ T[T[root].Connect[0]].X, T[T[root].Connect[0]].Y, 0 };
+	CreateCube(center, rgb, k, V, F);
+	CreateCylinder(center, parent, rgb, k, V, F);
+	for (unsigned int i = 1; i < T[root].Connect.size(); i++)
+	{
+		CreateShape(T, V, F, T[root].Connect[i], deepRoot, mt);
+	}
+}
+void CreateShapes(std::vector<Tree> &T, std::vector <Vertices> &V, std::vector<Faces>&F, unsigned int &root)
+{
+	std::random_device rd;
+	std::mt19937 mt(static_cast<unsigned int>(time(nullptr)));
+	unsigned int size = T.size();
+	coordinate center{ T[root].X, T[root].Y, 0 };
+	RGB rgb{ 100, 100, 100 };
+	double k = 0.3;
+	CreateCube(center, rgb, k, V, F);
+
+	for (unsigned int i = 0; i < T[root].Connect.size(); i++)
+	{
+		CreateShape(T, V, F, T[root].Connect[i], root, mt);
+	}
+
 }

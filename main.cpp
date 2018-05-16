@@ -1,48 +1,77 @@
 #include "Program.h"
-#include <random>
-#include <chrono>
-using std::cout;
-using std::endl;
 
 
 int main()
 {
-	unsigned int n{};
-	//std::cin >> n;
+	Timer tm;
 	std::vector<Tree> T;
+	unsigned int root{};
+	std::cout << "1 - generuoti faila, 2 - ivesti priuferio koda." << std::endl;
+	unsigned int in;
+	bool t{};
+	do{
+		t = false;
+		try
+		{
+			in = ivestiSk(1, 2);
+		} catch (const char* msg) {
+    	std::cout << msg << std::endl;
+    	t = true;
+   		}
+	}while (t);
+	switch(in)
+	{
+		case 1:{
+			std::cout << "Pasirinkote: Generuoti faila ---------------------" <<  std::endl;
+			do{
+				t = false;
+				try
+				{
+					in = ivestiSk(1, 1000000);
+				} catch (const char* msg) {
+		    	std::cout << msg << std::endl;
+		    	t = true;
+		   		}
+			}while (t);
+			std::cout << "Generuojamas Failas ------------------------------" <<  std::endl;
+			tm.reset();
+			TreeGenerator(in, T);
+			std::cout << tm.elapsed() << " s\n";
+			break;
+		}
+		case 2: {
+			std::cout << "Iveskite priuferio koda --------------------------" <<  std::endl;
+			InputPrufer(T);
+			break;
+		}
+		default: system("pause");
+	}
+	std::cout << "Ieskoma saknis -----------------------------------" << std::endl;
+	tm.reset();
+	root = FindRoot(T);
+	std::cout << tm.elapsed() << " s\n";
+	std::cout << "Skaiciuojami Vaikai ------------------------------" <<  std::endl;
+	tm.reset();
+	std::cout << CountMagic(T, root, 0) <<" dbgdhthb"<< std::endl;
+	std::cout << tm.elapsed() << " s\n";
+	std::cout << "Skaiciuojami Kampai ------------------------------" <<  std::endl;
+	tm.reset();
+	GetNewArea(T, root);
+	std::cout << tm.elapsed() << " s\n";
+	std::cout << "Skaiciuojamos Koordinates ------------------------" <<  std::endl;
+	tm.reset();
+	GetCoordinates(T);
+	std::cout << tm.elapsed() << " s\n";
+	std::cout << "Sudaromi figuros ---------------------------------" <<  std::endl;
+	tm.reset();
 	std::vector<Vertices> V{};
 	std::vector<Faces> F{};
-	std::cout << "Generuojamas Failas ------------------------------" <<  std::endl;
-	//TreeGenerator(n, T);
-	InputPrufer(T);
-	std::cout << "Skaiciuojami Vaikai ------------------------------" <<  std::endl;
-	CountDescLevel(T, 0, 0);
-	//std::cout << FindRoot(T) << std::endl;
-	std::cout << "Skaiciuojami Kampai ------------------------------" <<  std::endl;
-	GetArea(T);
-	std::cout << "Skaiciuojamos Koordinates ------------------------" <<  std::endl;
-	GetCoordinates(T);
-	std::cout << "Sudaromi kubai -----------------------------------" <<  std::endl;
-	std::random_device rd;
-	std::mt19937 mt(static_cast<unsigned int>(time(nullptr)));
-	unsigned int size = T.size();
-	coordinate center{T[0].X, T[0].Y, 0};
-	RGB rgb{100, 100, 100};
-	float k = 1.0/size+1.0/(0+5);
-	CreateCube(center,rgb, k, V, F);
-	for (unsigned int i = 1; i < size; i++)
-	{
-		std::uniform_int_distribution<unsigned int> d(0,255);
-		RGB rgb{d(mt), d(mt), d(mt)};
-		float k = 0.5/size+1.0/(i+5);
-		coordinate center{T[i].X, T[i].Y, 0};
-		coordinate parent{T[T[i].Connect[0]].X, T[T[i].Connect[0]].Y, 0};
-		CreateCube(center,rgb, k, V, F);
-		CreateCylinder(center, parent, rgb, k, V, F);
-	}
-	
+	CreateShapes(T, V, F, root);
+	std::cout << tm.elapsed() << " s\n";
 	std::cout << "Kuriamas OFF failas ------------------------------" <<  std::endl;
+	tm.reset();
 	PrintOFF(V, F);
-	//PrintList(T);
+	std::cout << tm.elapsed() << " s\n";
+	system("pause");
 	return 0;
 }
