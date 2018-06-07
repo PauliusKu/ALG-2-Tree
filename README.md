@@ -11,3 +11,6 @@ Medžio vizualizacija radialiniu būdu (angl. radial drawing of tree graph) C++
 
 ### Nuorodos
 - [sketchfab collection](https://skfb.ly/6yWAr)
+
+### 500 viršūnių medis (random generated)
+![alt text](https://github.com/PauliusKu/ALG-2-Tree/blob/master/tree.png)
